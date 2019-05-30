@@ -34,6 +34,18 @@ services:
     networks:
       cliqes_net:
         ipv4_address: 173.66.1.20
+  cliqes_kafdrop:
+    image: thomsch98/kafdrop:alpine
+    ports:
+      - "9010:9010" 
+    environment:
+      - "ZK_HOSTS=cliqes_zookeeper_kafka:2181"
+      - "LISTEN=9010"
+    logging:
+    driver: journald
+    networks:
+      cliqes_net:
+        ipv4_address: 173.66.1.30
 networks:
   cliqes_net:
     ipam:
