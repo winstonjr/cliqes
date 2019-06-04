@@ -1,104 +1,66 @@
 version: '3.7'
 services:
-  # cliqes_eventstore_node_1
-  cliqes_eventstore_2:
+  eventstore:
     image: eventstore/eventstore
-    hostname: cliqes_eventstore_2
-    #container_name: cliqes_eventstore_node_name
-    restart: always
     ports:
       - 2113:2113
       - 1113:1113
-    networks:
-      cliqes_net:
-        ipv4_address: 173.66.1.10
-  # cliqes_zookeeper_kafka_1
-  cliqes_zookeeper_kafka_2:
-    image: zookeeper:3.4.9
-    hostname: cliqes_zookeeper_kafka_2
-    #container_name: cliqes_zookeeper_kafka_name
-    ports:
-      - "2181:2181"
+
+  zookeeper:
+    image: "confluentinc/cp-zookeeper:5.2.1"
     environment:
-        ZOO_MY_ID: 1
-        ZOO_PORT: 2181
-        ZOO_SERVERS: server.1=cliqes_zookeeper_kafka_2:2888:3888
-    volumes:
-      - ./zk-single-kafka-single/cliqes_zookeeper_kafka_2/data:/data
-      - ./zk-single-kafka-single/cliqes_zookeeper_kafka_2/datalog:/datalog
-    networks:
-      cliqes_net:
-        ipv4_address: 173.66.1.15
-  # cliqes_kafka_1
-  cliqes_kafka_2:
-    image: confluentinc/cp-kafka:5.2.1
-    hostname: cliqes_kafka_2
-    #container_name: cliqes_kafka_name
+      ZOOKEEPER_CLIENT_PORT: 32181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: "confluentinc/cp-enterprise-kafka:5.2.1"
+    ports:
+      - '39092:39092'
+      - '9092:9092'
     depends_on:
-      - cliqes_zookeeper_kafka_2
-    ports:
-      - "9092:9092"
+      - zookeeper
     environment:
-      #KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://cliqes_kafka_2:19092,LISTENER_DOCKER_EXTERNAL://${DOCKER_HOST_IP:-127.0.0.1}:9092
-      KAFKA_ADVERTISED_LISTENERS: LISTENER_DOCKER_INTERNAL://cliqes_kafka_2:19092,LISTENER_DOCKER_EXTERNAL://127.0.0.1:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: LISTENER_DOCKER_INTERNAL:PLAINTEXT,LISTENER_DOCKER_EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: LISTENER_DOCKER_INTERNAL
-      KAFKA_ZOOKEEPER_CONNECT: "cliqes_zookeeper_kafka_2:2181"
       KAFKA_BROKER_ID: 1
-      KAFKA_LOG4J_LOGGERS: "kafka.controller=INFO,kafka.producer.async.DefaultEventHandler=INFO,state.change.logger=INFO"
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:32181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:39092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_METRIC_REPORTERS: io.confluent.metrics.reporter.ConfluentMetricsReporter
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    volumes:
-      - ./zk-single-kafka-single/kafka1/data:/var/lib/kafka/data
-    networks:
-      cliqes_net:
-        ipv4_address: 173.66.1.20
-  # cliqes_kafdrop
-  cliqes_kafdrop_2:
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 100
+      CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: kafka:39092
+      CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:32181
+      CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+      CONFLUENT_METRICS_ENABLE: 'true'
+      CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+
+  schema-registry:
+    image: "confluentinc/cp-schema-registry:5.2.1"
+    depends_on:
+      - zookeeper
+      - kafka
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:32181
+
+  ksql-server:
+    image: "confluentinc/cp-ksql-server:5.2.1"
+    depends_on:
+      - kafka
+      - schema-registry
+    environment:
+      KSQL_BOOTSTRAP_SERVERS: kafka:39092
+      KSQL_LISTENERS: http://0.0.0.0:8088
+      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+
+  kafdrop:
     image: thomsch98/kafdrop
     hostname: cliqes_kafdrop_2
-    #container_name: cliqes_kafdrop_name
     depends_on:
-      - cliqes_kafka_2
+      - kafka
     ports:
       - "9010:9010" 
     environment:
-      - "ZK_HOSTS=cliqes_zookeeper_kafka_2:2181"
+      - "ZK_HOSTS=zookeeper:32181"
       - "LISTEN=9010"
-    networks:
-      cliqes_net:
-        ipv4_address: 173.66.1.25
-  # cliqes_schema_registry
-#  cliqes_schema_registry_2:
-#    image: "confluentinc/cp-schema-registry:5.2.1"
-#    hostname: cliqes_schema_registry_2
-    #container_name: cliqes_schema_registry_name
-#    depends_on:
-#      - cliqes_zookeeper_kafka_2
-#      - cliqes_kafka_2
-#    environment:
-#      SCHEMA_REGISTRY_HOST_NAME: cliqes_schema_registry_2
-#      SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: cliqes_zookeeper_kafka_2:2181
-#    networks:
-#      cliqes_net:
-#        ipv4_address: 173.66.1.30
-  # cliqes_ksql_server
-#  cliqes_ksql_server_2:
-#    image: "confluentinc/cp-ksql-server:5.2.1"
-#    hostname: cliqes_ksql_server_2
-    #container_name: cliqes_ksql_server_name
-#    depends_on:
-#      - cliqes_kafka_2
-#      - cliqes_schema_registry_2
-#    environment:
-#      KSQL_BOOTSTRAP_SERVERS: 173.66.1.20:9092
-#      KSQL_LISTENERS: http://0.0.0.0:8088
-#      KSQL_KSQL_SCHEMA_REGISTRY_URL: http://cliqes_schema_registry_2:8081
-#    networks:
-#      cliqes_net:
-#        ipv4_address: 173.66.1.35
-networks:
-  cliqes_net:
-    ipam:
-      driver: default
-      config:
-        - subnet: 173.66.0.0/16
