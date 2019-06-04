@@ -64,4 +64,3 @@ services:
     environment:
       - "ZK_HOSTS=zookeeper:32181"
       - "LISTEN=9010"
-#
