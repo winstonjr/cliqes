@@ -5,6 +5,9 @@ services:
     ports:
       - 2113:2113
       - 1113:1113
+    environment:
+      - EVENTSTORE_RUN_PROJECTIONS=All
+      - EVENTSTORE_START_STANDARD_PROJECTIONS=true
 
   zookeeper:
     image: "confluentinc/cp-zookeeper:5.2.1"
